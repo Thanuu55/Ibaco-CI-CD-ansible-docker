@@ -1,0 +1,49 @@
+---
+# Ibaco Project – Ansible Docker Deployment
+# Developed & Automated by: thanushrii
+
+- name: Deploy latest Ibaco container from DockerHub
+  hosts: dev
+  become: yes
+
+  vars:
+    container_name: "ibaco_container"
+    image_name: "thanushrii/ibaco:latest"
+    container_port: "8084"     # Host Port
+    request_port: "8080"       # Container Port (Tomcat default)
+
+  tasks:
+
+    - name: Pull latest image from DockerHub
+      community.docker.docker_image:
+        name: "{{ image_name }}"
+        source: pull
+        force_source: yes
+
+    - name: Check if container exists
+      community.docker.docker_container_info:
+        name: "{{ container_name }}"
+      register: container_info
+      ignore_errors: yes
+
+    - name: Stop existing container if running
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: stopped
+      when: container_info.exists and container_info.container.State.Running
+
+    - name: Remove existing container if exists
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+      when: container_info.exists
+
+    - name: Run new container with latest image
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ container_port }}:{{ request_port }}"
+
